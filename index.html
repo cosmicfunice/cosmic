@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosmicCraft Infinity</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --cosmic-dark: #0a0a1a;
+            --cosmic-darker: #050510;
+            --cosmic-neon: #00f7ff;
+            --cosmic-purple: #bd00ff;
+            --cosmic-pink: #ff00c1;
+            --cosmic-text: #ffffff;
+            --cosmic-accent: #ff5500;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--cosmic-darker);
+            color: var(--cosmic-text);
+            overflow: hidden;
+            touch-action: manipulation;
+            height: 100vh;
+            overscroll-behavior: none;
+        }
+        
+        #app {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        /* Efeito de partículas de fundo */
+        #particles-js {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        /* Header holográfico */
+        .cosmic-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(0,0,16,0.9) 0%, rgba(0,0,16,0) 100%);
+            backdrop-filter: blur(5px);
+        }
+        
+        .logo {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--cosmic-neon), var(--cosmic-purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            user-select: none;
+            text-shadow: 0 0 10px rgba(0, 247, 255, 0.3);
+            animation: logo-glow 3s infinite alternate;
+        }
+        
+        @keyframes logo-glow {
+            0% { text-shadow: 0 0 10px rgba(0, 247, 255, 0.3); }
+            100% { text-shadow: 0 0 20px rgba(0, 247, 255, 0.7), 0 0 30px rgba(189, 0, 255, 0.5); }
+        }
+        
+        /* Menu principal */
+        .main-menu {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            max-width: 500px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.8rem;
+            padding: 1rem;
+            background: rgba(10, 10, 26, 0.7);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 247, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 247, 255, 0.1);
+            z-index: 100;
+        }
+        
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.8rem 0.5rem;
+            border-radius: 15px;
+            background: rgba(0, 247, 255, 0.05);
+            border: 1px solid rgba(0, 247, 255, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .menu-item:active {
+            transform: scale(0.92);
+            background: rgba(0, 247, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 247, 255, 0.3);
+        }
+        
+        .menu-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.3rem;
+            filter: drop-shadow(0 0 5px rgba(0, 247, 255, 0.5));
+        }
+        
+        .menu-text {
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--cosmic-neon), var(--cosmic-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        /* Conteúdo principal */
+        .game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 6rem 1rem 8rem;
+            overflow-y: auto;
+            scrollbar-width: none;
+            z-index: 1;
+        }
+        
+        .game-container::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Interface do Infinite Craft */
+        #crafting-interface {
+            background: rgba(10, 10, 26, 0.8);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--cosmic-neon);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .crafting-title {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, var(--cosmic-neon), var(--cosmic-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .elements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .element {
+            padding: 0.8rem;
+            border-radius: 12px;
+            background: rgba(0, 247, 255, 0.1);
+            border: 1px solid rgba(0, 247, 255, 0.3);
+            text-align: center;
+            cursor: grab;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .element:active {
+            transform: scale(0.95);
+            cursor: grabbing;
+        }
+        
+        .element-emoji {
+            font-size: 2rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .element-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .crafting-area {
+            min-height: 150px;
+            border: 2px dashed var(--cosmic-purple);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .crafting-area.highlight {
+            border-color: var(--cosmic-neon);
+            background: rgba(0, 247, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0, 247, 255, 0.1);
+        }
+        
+        .discovery-panel {
+            background: rgba(189, 0, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(189, 0, 255, 0.3);
+        }
+        
+        .discovery-title {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            color: var(--cosmic-purple);
+        }
+        
+        .discovery-count {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+        }
+        
+        .discovery-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .discovery-item {
+            padding: 0.5rem 0.8rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 0.8rem;
+        }
+        
+        /* Efeitos 3D */
+        #three-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        /* Assistente de IA */
+        .ai-assistant {
+            position: fixed;
+            bottom: 8rem;
+            right: 1rem;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(189,0,255,0.8) 0%, rgba(255,0,193,0.6) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(189, 0, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .ai-assistant:active {
+            transform: scale(0.9) rotate(15deg);
+        }
+        
+        .ai-icon {
+            font-size: 2rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Modal de descoberta */
+        .discovery-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5,5,16,0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .discovery-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .discovery-modal-content {
+            background: linear-gradient(135deg, rgba(10,10,26,0.9) 0%, rgba(26,10,46,0.9) 100%);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid var(--cosmic-neon);
+            box-shadow: 0 0 30px rgba(0, 247, 255, 0.2);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .discovery-modal.active .discovery-modal-content {
+            transform: scale(1);
+        }
+        
+        .discovery-modal-emoji {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 0.5s alternate infinite;
+        }
+        
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-20px); }
+        }
+        
+        .discovery-modal-name {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, var(--cosmic-neon), var(--cosmic-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .discovery-modal-description {
+            margin-bottom: 1.5rem;
+            opacity: 0.8;
+        }
+        
+        .discovery-modal-close {
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            background: linear-gradient(90deg, var(--cosmic-purple), var(--cosmic-pink));
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .discovery-modal-close:active {
+            transform: scale(0.95);
+        }
+        
+        /* Responsividade */
+        @media (max-width: 600px) {
+            .elements-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            }
+            
+            .crafting-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="particles-js"></div>
+        <canvas id="three-container"></canvas>
+        
+        <div class="cosmic-header">
+            <div class="logo">cosmic<span style="font-weight: 300;">craft</span></div>
+            <div id="discovery-counter">0 descobertas</div>
+        </div>
+        
+        <div class="game-container">
+            <div id="crafting-interface">
+                <h1 class="crafting-title">Infinite Craft Pro</h1>
+                
+                <div class="elements-grid" id="elements-grid">
+                    <!-- Elementos serão inseridos aqui via JavaScript -->
+                </div>
+                
+                <div class="crafting-area" id="crafting-area">
+                    <p>Arraste 2 elementos aqui para combinar</p>
+                </div>
+                
+                <div class="discovery-panel">
+                    <h3 class="discovery-title">Suas Descobertas</h3>
+                    <div class="discovery-count" id="discovery-count">0/∞ elementos</div>
+                    <div class="discovery-list" id="discovery-list">
+                        <!-- Itens descobertos serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-menu">
+            <div class="menu-item" id="menu-craft">
+                <div class="menu-icon">🧪</div>
+                <div class="menu-text">Craft</div>
+            </div>
+            <div class="menu-item" id="menu-universe">
+                <div class="menu-icon">🌌</div>
+                <div class="menu-text">Universo</div>
+            </div>
+            <div class="menu-item" id="menu-evolution">
+                <div class="menu-icon">🧬</div>
+                <div class="menu-text">Evolução</div>
+            </div>
+            <div class="menu-item" id="menu-quantum">
+                <div class="menu-icon">⚛️</div>
+                <div class="menu-text">Quantum</div>
+            </div>
+            <div class="menu-item" id="menu-ai">
+                <div class="menu-icon">🤖</div>
+                <div class="menu-text">IA</div>
+            </div>
+        </div>
+        
+        <div class="ai-assistant" id="ai-assistant">
+            <div class="ai-icon">✨</div>
+        </div>
+        
+        <div class="discovery-modal" id="discovery-modal">
+            <div class="discovery-modal-content">
+                <div class="discovery-modal-emoji" id="discovery-emoji">✨</div>
+                <h2 class="discovery-modal-name" id="discovery-name">Novo Elemento</h2>
+                <p class="discovery-modal-description" id="discovery-description">Você descobriu algo incrível!</p>
+                <button class="discovery-modal-close" id="discovery-close">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ======================
+        // CONFIGURAÇÃO INICIAL
+        // ======================
+        
+        // Banco de dados de elementos e combinações
+        const elementsDB = {
+            // Elementos básicos
+            'água': { emoji: '💧', color: '#00a2ff', discovered: true, rarity: 'common', category: 'nature' },
+            'fogo': { emoji: '🔥', color: '#ff3c00', discovered: true, rarity: 'common', category: 'nature' },
+            'terra': { emoji: '🌍', color: '#5e3a00', discovered: true, rarity: 'common', category: 'nature' },
+            'ar': { emoji: '🌬️', color: '#aaf0ff', discovered: true, rarity: 'common', category: 'nature' },
+            
+            // Combinações básicas
+            'vapor': { emoji: '☁️', color: '#ffffff', combo: ['água', 'fogo'], rarity: 'uncommon', category: 'nature' },
+            'lava': { emoji: '🌋', color: '#ff5500', combo: ['fogo', 'terra'], rarity: 'uncommon', category: 'nature' },
+            'poeira': { emoji: '💨', color: '#cccccc', combo: ['terra', 'ar'], rarity: 'common', category: 'nature' },
+            'chuva': { emoji: '🌧️', color: '#00a2ff', combo: ['ar', 'água'], rarity: 'common', category: 'nature' },
+            'lama': { emoji: '🌱', color: '#5e3a00', combo: ['água', 'terra'], rarity: 'common', category: 'nature' },
+            'energia': { emoji: '⚡', color: '#ffff00', combo: ['fogo', 'ar'], rarity: 'uncommon', category: 'science' },
+            
+            // Combinações avançadas
+            'planta': { emoji: '🌿', color: '#00aa44', combo: ['terra', 'chuva'], rarity: 'uncommon', category: 'nature' },
+            'vidro': { emoji: '🥃', color: '#00ffaa', combo: ['areia', 'fogo'], rarity: 'rare', category: 'science' },
+            'metal': { emoji: '⛓️', color: '#aaaaaa', combo: ['fogo', 'pedra'], rarity: 'rare', category: 'science' },
+            'raio': { emoji: '⚡', color: '#ffff00', combo: ['energia', 'nuvem'], rarity: 'rare', category: 'nature' },
+            'vida': { emoji: '🧬', color: '#00ff88', combo: ['planta', 'energia'], rarity: 'epic', category: 'science' },
+            'humanidade': { emoji: '👥', color: '#ffaa00', combo: ['vida', 'tempo'], rarity: 'legendary', category: 'fantasy' },
+            
+            // Elementos especiais
+            'tempo': { emoji: '⏳', color: '#ffffff', combo: ['areia', 'vidro'], rarity: 'epic', category: 'cosmic' },
+            'universo': { emoji: '🌌', color: '#bd00ff', combo: ['tempo', 'espaço'], rarity: 'legendary', category: 'cosmic' },
+            'cosmos': { emoji: '✨', color: '#ffffff', combo: ['universo', 'energia'], rarity: 'mythic', category: 'cosmic' }
+        };
+        
+        // Combinações especiais não descobertas ainda
+        const secretCombinations = {
+            'água+fogo+terra': { result: 'vida primordial', emoji: '🧫', color: '#00ff88', rarity: 'epic', category: 'science' },
+            'fogo+metal+energia': { result: 'máquina', emoji: '⚙️', color: '#aaaaaa', rarity: 'rare', category: 'technology' },
+            'vida+máquina': { result: 'androide', emoji: '🤖', color: '#00aaff', rarity: 'epic', category: 'technology' },
+            'universo+cosmos': { result: 'multiverso', emoji: '🌀', color: '#ff00aa', rarity: 'mythic', category: 'cosmic' },
+            'humanidade+androide': { result: 'singularidade', emoji: '💫', color: '#ffffff', rarity: 'mythic', category: 'technology' }
+        };
+        
+        // Sistema de IA Generativa
+        class CosmicAI {
+            constructor() {
+                this.elementCategories = {
+                    nature: ['floresta', 'montanha', 'oceano', 'deserto', 'vulcão', 'rio', 'lago', 'furacão', 'tsunami', 'aurora'],
+                    science: ['átomo', 'molécula', 'laboratório', 'computador', 'robô', 'DNA', 'bactéria', 'vírus', 'célula', 'neurotransmissor'],
+                    cosmic: ['estrela', 'galáxia', 'buraco negro', 'nebulosa', 'quasar', 'pulsar', 'supernova', 'matéria escura', 'energia escura', 'wormhole'],
+                    fantasy: ['dragão', 'fênix', 'unicórnio', 'magia', 'feiticeiro', 'elfo', 'anão', 'troll', 'fada', 'goblin'],
+                    technology: ['IA', 'nanobot', 'holodeck', 'teletransporte', 'realidade virtual', 'cyborg', 'holograma', 'androide', 'singularidade', 'matrix']
+                };
+                
+                this.descriptions = [
+                    "Uma descoberta que revolucionará a ciência!",
+                    "Este elemento desafia todas as leis conhecidas da física!",
+                    "Nenhum universo paralelo possui algo semelhante!",
+                    "Os maiores cientistas ficariam perplexos com esta descoberta!",
+                    "Este elemento contém segredos cósmicos inimagináveis!",
+                    "Uma fusão nunca antes vista na história da humanidade!",
+                    "Esta combinação cria algo verdadeiramente extraordinário!",
+                    "Prepare-se para testemunhar o poder deste novo elemento!",
+                    "Uma descoberta que pode mudar o curso da civilização!",
+                    "Este elemento representa o próximo passo na evolução cósmica!"
+                ];
+                
+                this.adjectives = [
+                    'quântico', 'cósmico', 'hiper', 'ultra', 'mega', 'super', 
+                    'interdimensional', 'atômico', 'nanoscópico', 'psíquico',
+                    'etéreo', 'elemental', 'primordial', 'infinito', 'eterno',
+                    'celestial', 'galáctico', 'universal', 'dimensional', 'transcendental'
+                ];
+                
+                this.emojiDatabase = {
+                    nature: ['🌲', '🌳', '🌴', '🌵', '🌊', '🏔️', '🌋', '🌀', '🌪️', '🌈'],
+                    science: ['⚛️', '🧪', '🔬', '🧫', '🧬', '🔭', '🦠', '🧠', '🧫', '⚗️'],
+                    cosmic: ['⭐', '🌟', '🌠', '🌌', '🌀', '💫', '☄️', '🌑', '🌒', '🌓'],
+                    fantasy: ['🐉', '🦄', '🧙', '🧚', '🧝', '🧞', '🧟', '🧌', '🦹', '🦸'],
+                    technology: ['🤖', '👾', '🎮', '🕹️', '💾', '💿', '📟', '📡', '🛰️', '🚀']
+                };
+                
+                this.colorPalettes = {
+                    nature: ['#00a2ff', '#00aa44', '#5e3a00', '#ff5500', '#00ffaa'],
+                    science: ['#ffff00', '#ff00aa', '#00ffff', '#aa00ff', '#ffaa00'],
+                    cosmic: ['#bd00ff', '#ff00c1', '#00f7ff', '#ffffff', '#000000'],
+                    fantasy: ['#ff00aa', '#aa00ff', '#00ffaa', '#ffaa00', '#aa00aa'],
+                    technology: ['#00aaff', '#00ffaa', '#ff00aa', '#aa00ff', '#00aaff']
+                };
+            }
+            
+            generateElement(elements) {
+                // Analisar os elementos combinados para determinar a categoria
+                const categories = this.analyzeElements(elements);
+                const mainCategory = this.weightedRandom(categories);
+                
+                // Gerar nome baseado na categoria
+                const name = this.generateName(mainCategory);
+                
+                // Gerar propriedades únicas
+                const emoji = this.generateEmoji(mainCategory);
+                const color = this.generateColor(mainCategory);
+                const rarity = this.determineRarity(elements);
+                const description = this.generateDescription(name, elements);
+                
+                return {
+                    name,
+                    emoji,
+                    color,
+                    rarity,
+                    combo: elements,
+                    category: mainCategory,
+                    description,
+                    discovered: false
+                };
+            }
+            
+            analyzeElements(elements) {
+                const categories = {};
+                
+                elements.forEach(el => {
+                    const elementData = elementsDB[el] || { category: 'unknown' };
+                    const category = elementData.category || this.determineCategory(el);
+                    
+                    if (!categories[category]) {
+                        categories[category] = 1;
+                    } else {
+                        categories[category]++;
+                    }
+                });
+                
+                return categories;
+            }
+            
+            determineCategory(element) {
+                for (const [category, items] of Object.entries(this.elementCategories)) {
+                    if (items.includes(element)) return category;
+                }
+                return 'unknown';
+            }
+            
+            weightedRandom(categories) {
+                const total = Object.values(categories).reduce((sum, val) => sum + val, 0);
+                let random = Math.random() * total;
+                
+                for (const [category, weight] of Object.entries(categories)) {
+                    if (random < weight) return category;
+                    random -= weight;
+                }
+                
+                return Object.keys(categories)[0] || 'nature';
+            }
+            
+            generateName(category) {
+                const prefix = this.adjectives[Math.floor(Math.random() * this.adjectives.length)];
+                const suffix = this.elementCategories[category]?.[
+                    Math.floor(Math.random() * this.elementCategories[category].length)
+                ] || 'matéria';
+                
+                return `${prefix} ${suffix}`;
+            }
+            
+            generateEmoji(category) {
+                const emojis = this.emojiDatabase[category] || ['✨'];
+                return emojis[Math.floor(Math.random() * emojis.length)];
+            }
+            
+            generateColor(category) {
+                const palette = this.colorPalettes[category] || ['#ffffff'];
+                return palette[Math.floor(Math.random() * palette.length)];
+            }
+            
+            determineRarity(elements) {
+                const elementRarities = elements.map(el => {
+                    const elementData = elementsDB[el];
+                    if (!elementData) return 'common';
+                    
+                    switch (elementData.rarity) {
+                        case 'common': return 1;
+                        case 'uncommon': return 2;
+                        case 'rare': return 3;
+                        case 'epic': return 4;
+                        case 'legendary': return 5;
+                        case 'mythic': return 6;
+                        default: return 1;
+                    }
+                });
+                
+                const avgRarity = elementRarities.reduce((a, b) => a + b, 0) / elementRarities.length;
+                const rarityRoll = Math.random() * avgRarity * 1.5;
+                
+                if (rarityRoll > 5) return 'mythic';
+                if (rarityRoll > 4) return 'legendary';
+                if (rarityRoll > 3) return 'epic';
+                if (rarityRoll > 2) return 'rare';
+                if (rarityRoll > 1.5) return 'uncommon';
+                return 'common';
+            }
+            
+            generateDescription(name, elements) {
+                const base = this.descriptions[Math.floor(Math.random() * this.descriptions.length)];
+                return `${base} O elemento ${name} representa a fusão de ${elements.join(' e ')}.`;
+            }
+        }
+        
+        const cosmicAI = new CosmicAI();
+        
+        // ======================
+        // INICIALIZAÇÃO DO JOGO
+        // ======================
+        
+        // Estado do jogo
+        const gameState = {
+            discoveredElements: ['água', 'fogo', 'terra', 'ar'],
+            craftingElements: [],
+            discoveryCount: 4,
+            totalElements: Object.keys(elementsDB).length + Object.keys(secretCombinations).length,
+            aiEnabled: true,
+            animations: []
+        };
+        
+        // Elementos arrastáveis
+        let draggedElement = null;
+        
+        // ======================
+        // INICIALIZAÇÃO THREE.JS
+        // ======================
+        
+        // Configuração básica da cena 3D
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: document.getElementById('three-container'),
+            antialias: true,
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Adicionar estrelas ao fundo
+        function addStars() {
+            const starsGeometry = new THREE.BufferGeometry();
+            const starCount = 2000;
+            const positions = new Float32Array(starCount * 3);
+            
+            for (let i = 0; i < starCount; i++) {
+                const i3 = i * 3;
+                positions[i3] = (Math.random() - 0.5) * 2000;
+                positions[i3 + 1] = (Math.random() - 0.5) * 2000;
+                positions[i3 + 2] = (Math.random() - 0.5) * 2000;
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1.5,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        }
+        
+        addStars();
+        camera.position.z = 5;
+        
+        // Animação da cena 3D
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // ======================
+        // FUNÇÕES DO JOGO
+        // ======================
+        
+        // Inicializar elementos na grade
+        function initializeElements() {
+            const elementsGrid = document.getElementById('elements-grid');
+            elementsGrid.innerHTML = '';
+            
+            gameState.discoveredElements.forEach(elementName => {
+                const element = elementsDB[elementName];
+                const elementDiv = document.createElement('div');
+                elementDiv.className = 'element';
+                elementDiv.setAttribute('draggable', 'true');
+                elementDiv.setAttribute('data-element', elementName);
+                elementDiv.style.borderColor = element.color;
+                elementDiv.style.boxShadow = `0 0 10px ${element.color}40`;
+                
+                elementDiv.innerHTML = `
+                    <div class="element-emoji">${element.emoji}</div>
+                    <div class="element-name">${elementName}</div>
+                `;
+                
+                elementDiv.addEventListener('dragstart', (e) => {
+                    draggedElement = elementName;
+                    e.dataTransfer.setData('text/plain', elementName);
+                    elementDiv.style.opacity = '0.7';
+                    elementDiv.style.transform = 'scale(0.95)';
+                });
+                
+                elementDiv.addEventListener('dragend', () => {
+                    elementDiv.style.opacity = '1';
+                    elementDiv.style.transform = 'scale(1)';
+                });
+                
+                elementsGrid.appendChild(elementDiv);
+            });
+        }
+        
+        // Atualizar lista de descobertas
+        function updateDiscoveryList() {
+            const discoveryList = document.getElementById('discovery-list');
+            discoveryList.innerHTML = '';
+            
+            gameState.discoveredElements.forEach(elementName => {
+                const element = elementsDB[elementName];
+                const item = document.createElement('div');
+                item.className = 'discovery-item';
+                item.style.backgroundColor = element.color;
+                item.textContent = `${element.emoji} ${elementName}`;
+                discoveryList.appendChild(item);
+            });
+            
+            document.getElementById('discovery-count').textContent = 
+                `${gameState.discoveryCount}/${gameState.totalElements} elementos`;
+            
+            document.getElementById('discovery-counter').textContent = 
+                `${gameState.discoveryCount} descobertas`;
+        }
+        
+        // Mostrar modal de descoberta
+        function showDiscoveryModal(elementName) {
+            const element = elementsDB[elementName];
+            const modal = document.getElementById('discovery-modal');
+            
+            document.getElementById('discovery-emoji').textContent = element.emoji;
+            document.getElementById('discovery-name').textContent = elementName;
+            
+            if (element.description) {
+                document.getElementById('discovery-description').textContent = element.description;
+            } else {
+                document.getElementById('discovery-description').textContent = 
+                    cosmicAI.generateDescription(elementName, element.combo || ['elementos misteriosos']);
+            }
+            
+            modal.classList.add('active');
+        }
+        
+        // Combinar elementos
+        function combineElements() {
+            if (gameState.craftingElements.length !== 2) return;
+            
+            const [elem1, elem2] = gameState.craftingElements;
+            const combinationKey1 = `${elem1}+${elem2}`;
+            const combinationKey2 = `${elem2}+${elem1}`;
+            
+            let result = null;
+            
+            // Verificar combinações predefinidas
+            if (elementsDB[combinationKey1]) {
+                result = combinationKey1;
+            } else if (elementsDB[combinationKey2]) {
+                result = combinationKey2;
+            } 
+            // Verificar combinações secretas
+            else if (secretCombinations[combinationKey1]) {
+                result = secretCombinations[combinationKey1].result;
+                elementsDB[result] = secretCombinations[combinationKey1];
+            } else if (secretCombinations[combinationKey2]) {
+                result = secretCombinations[combinationKey2].result;
+                elementsDB[result] = secretCombinations[combinationKey2];
+            }
+            // Usar IA para gerar novo elemento
+            else if (gameState.aiEnabled) {
+                const newElement = cosmicAI.generateElement([elem1, elem2]);
+                result = newElement.name;
+                elementsDB[result] = newElement;
+            } else {
+                result = null;
+            }
+            
+            // Processar resultado
+            if (result && elementsDB[result]) {
+                if (!gameState.discoveredElements.includes(result)) {
+                    elementsDB[result].discovered = true;
+                    gameState.discoveredElements.push(result);
+                    gameState.discoveryCount++;
+                    
+                    // Criar visualização 3D do novo elemento
+                    createElementParticle(result);
+                    
+                    // Mostrar modal de descoberta
+                    showDiscoveryModal(result);
+                    
+                    // Atualizar interface
+                    initializeElements();
+                    updateDiscoveryList();
+                }
+                
+                // Mostrar resultado na área de crafting
+                const craftingArea = document.getElementById('crafting-area');
+                craftingArea.innerHTML = `
+                    <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                        ${elementsDB[elem1].emoji} + ${elementsDB[elem2].emoji} = ${elementsDB[result].emoji}
+                    </p>
+                    <p style="font-weight: bold; font-size: 1.5rem; color: ${elementsDB[result].color}">
+                        ${result}
+                    </p>
+                `;
+            } else {
+                const craftingArea = document.getElementById('crafting-area');
+                craftingArea.innerHTML = `
+                    <p style="font-size: 1.2rem;">
+                        ${elementsDB[elem1].emoji} + ${elementsDB[elem2].emoji} = ❌
+                    </p>
+                    <p>Esta combinação não produziu nada interessante...</p>
+                `;
+            }
+            
+            // Resetar elementos de crafting
+            gameState.craftingElements = [];
+        }
+        
+        // Criar partícula 3D para novo elemento
+        function createElementParticle(elementName) {
+            const element = elementsDB[elementName];
+            const color = new THREE.Color(element.color);
+            
+            // Criar geometria baseada na raridade
+            let geometry;
+            switch(element.rarity) {
+                case 'mythic':
+                    geometry = new THREE.IcosahedronGeometry(0.5, 3);
+                    break;
+                case 'legendary':
+                    geometry = new THREE.OctahedronGeometry(0.5, 2);
+                    break;
+                case 'epic':
+                    geometry = new THREE.TetrahedronGeometry(0.5, 1);
+                    break;
+                case 'rare':
+                    geometry = new THREE.SphereGeometry(0.5, 16, 16);
+                    break;
+                default:
+                    geometry = new THREE.SphereGeometry(0.3, 8, 8);
+            }
+            
+            const material = new THREE.MeshPhongMaterial({ 
+                color,
+                emissive: color,
+                emissiveIntensity: 0.3,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            const particle = new THREE.Mesh(geometry, material);
+            
+            // Posicionamento aleatório
+            particle.position.x = (Math.random() - 0.5) * 10;
+            particle.position.y = (Math.random() - 0.5) * 10;
+            particle.position.z = (Math.random() - 0.5) * 10;
+            
+            // Propriedades de animação
+            particle.userData = {
+                speed: 0.01 + Math.random() * 0.02,
+                angle: Math.random() * Math.PI * 2,
+                element: elementName
+            };
+            
+            // Adicionar à cena
+            scene.add(particle);
+            
+            // Animação
+            function animateParticle() {
+                particle.rotation.x += 0.01;
+                particle.rotation.y += 0.01;
+                
+                particle.position.x += Math.sin(particle.userData.angle) * particle.userData.speed;
+                particle.position.y += Math.cos(particle.userData.angle) * particle.userData.speed * 0.5;
+                particle.position.z += Math.cos(particle.userData.angle) * particle.userData.speed * 0.3;
+                
+                // Limites do espaço
+                if (particle.position.x > 15 || particle.position.x < -15) {
+                    particle.position.x = (Math.random() - 0.5) * 10;
+                }
+                if (particle.position.y > 10 || particle.position.y < -10) {
+                    particle.position.y = (Math.random() - 0.5) * 8;
+                }
+                if (particle.position.z > 10 || particle.position.z < -10) {
+                    particle.position.z = (Math.random() - 0.5) * 8;
+                }
+            }
+            
+            // Adicionar à lista de animações
+            gameState.animations.push(animateParticle);
+        }
+        
+        // Configurar arrastar e soltar
+        function setupDragAndDrop() {
+            const craftingArea = document.getElementById('crafting-area');
+            
+            craftingArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                craftingArea.classList.add('highlight');
+            });
+            
+            craftingArea.addEventListener('dragleave', () => {
+                craftingArea.classList.remove('highlight');
+            });
+            
+            craftingArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                craftingArea.classList.remove('highlight');
+                
+                if (draggedElement && gameState.craftingElements.length < 2) {
+                    gameState.craftingElements.push(draggedElement);
+                    
+                    const elementDiv = document.createElement('div');
+                    elementDiv.className = 'element';
+                    elementDiv.style.display = 'inline-block';
+                    elementDiv.style.margin = '5px';
+                    elementDiv.style.backgroundColor = elementsDB[draggedElement].color;
+                    elementDiv.textContent = `${elementsDB[draggedElement].emoji} ${draggedElement}`;
+                    
+                    craftingArea.appendChild(elementDiv);
+                    
+                    if (gameState.craftingElements.length === 2) {
+                        setTimeout(() => {
+                            combineElements();
+                        }, 500);
+                    }
+                }
+            });
+        }
+        
+        // Inicializar assistente de IA
+        function setupAIAssistant() {
+            document.getElementById('ai-assistant').addEventListener('click', () => {
+                const tips = [
+                    `Dica: Combine ${getRandomElement()} e ${getRandomElement()} para algo interessante!`,
+                    "Você sabia que pode arrastar elementos para a área de combinação?",
+                    `Você descobriu ${gameState.discoveryCount} de ${gameState.totalElements} elementos possíveis!`,
+                    "Combinações mais complexas criam elementos mais raros!",
+                    "Tente combinar 3 elementos arrastando para a área de crafting!",
+                    "Elementos raros podem ser combinados para criar coisas incríveis!",
+                    `Dica: ${getRandomDiscoveryTip()}`
+                ];
+                
+                const randomTip = tips[Math.floor(Math.random() * tips.length)];
+                alert(`🤖 Assistente Cosmic:\n\n${randomTip}`);
+            });
+        }
+        
+        function getRandomElement() {
+            const randomIndex = Math.floor(Math.random() * gameState.discoveredElements.length);
+            return gameState.discoveredElements[randomIndex];
+        }
+        
+        function getRandomDiscoveryTip() {
+            const undiscovered = Object.keys(elementsDB).filter(el => 
+                !gameState.discoveredElements.includes(el) && elementsDB[el].combo
+            );
+            
+            if (undiscovered.length > 0) {
+                const element = elementsDB[undiscovered[Math.floor(Math.random() * undiscovered.length)]];
+                return `Combine ${element.combo.join(' e ')} para criar ${element.name}!`;
+            }
+            
+            return "Continue explorando para descobrir combinações secretas!";
+        }
+        
+        // Configurar menu
+        function setupMenu() {
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const gameMode = e.currentTarget.id.replace('menu-', '');
+                    switch(gameMode) {
+                        case 'craft':
+                            // Já estamos no modo craft
+                            break;
+                        case 'universe':
+                            alert('Modo Universo será implementado em breve!');
+                            break;
+                        case 'evolution':
+                            alert('Modo Evolução será implementado em breve!');
+                            break;
+                        case 'quantum':
+                            alert('Modo Quantum será implementado em breve!');
+                            break;
+                        case 'ai':
+                            gameState.aiEnabled = !gameState.aiEnabled;
+                            alert(`Modo IA ${gameState.aiEnabled ? 'ativado' : 'desativado'}!`);
+                            break;
+                    }
+                });
+            });
+        }
+        
+        // Configurar eventos
+        function setupEvents() {
+            document.getElementById('discovery-close').addEventListener('click', () => {
+                document.getElementById('discovery-modal').classList.remove('active');
+            });
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        
+        // Loop de animação
+        function gameLoop() {
+            gameState.animations.forEach(animation => animation());
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Inicializar o jogo
+        function initGame() {
+            initializeElements();
+            updateDiscoveryList();
+            setupDragAndDrop();
+            setupAIAssistant();
+            setupMenu();
+            setupEvents();
+            gameLoop();
+        }
+        
+        // Iniciar quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
